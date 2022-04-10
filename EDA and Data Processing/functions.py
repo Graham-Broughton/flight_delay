@@ -51,3 +51,15 @@ def get_top_states(df):
     state_size = state_size[state_size['cumsum'] < (len(sample2) / 2)]
     return df, state_size
 
+def rename_brand_code(df):
+    df['branded_code_share'].replace({'AA_CODESHARE': 'AA', 'AS_CODESHARE': 'AS', 'DL_CODESHARE': 'DL', 'HA_CODESHARE': 'HA', 'UA_CODESHARE': 'UA'}, inplace=True)
+    return df
+
+def remove_outliers(df):
+    """
+    filters for arrival delay NaN's and for outliers based on histogram
+    """
+    df['arr_delay'].dropna()
+    df = df[df['arr_delay'] < 200]
+    df = df[df['arr_delay'] > -100]
+    return df
