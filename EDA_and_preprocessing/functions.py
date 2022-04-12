@@ -4,29 +4,23 @@
 def process_distance(df):
     """
     groups distance into 3 even cats based on distance: long medium and short
-    also creates a new column - hour of the day - and groups on that 
+    also creates new columns, hour of the day, for arrival and departure
     """
-    df['dep_time'] = pd.to_datetime(df['dep_time'], format='%H%M', errors='coerce') 
-    df['dep_time'] = df['dep_time'].round('60min')
+    import pandas as pd
     df['dist_cats'] = pd.qcut(df['distance'], 3, labels=['short', 'medium', 'long'])
-    df['hour'] = df['dep_time'].dt.hour
-    new_df = sample2.groupby(['hour', 'dist_cats']).size().reset_index().sort_values(0, ascending=False).groupby('dist_cats')
-    return new_df
+    return df
 
-def group_airports(df1, df2, column):
+def airport_hour_avgs(df):
     """
-    groups airports based on flights
-    joins passengers from passenger df
-    returns df with airports, passengers and flights sorted on 'passengers' or 'flights' and flights/passenger percent
+    returns df with hourly arrival/departure averages per airport per weekday
     """
-    df1 = df1.groupby(['origin_airport_id', 'dest_airport_id'], as_index=False).size().groupby('origin_airport_id', as_index=False).agg({'size': 'sum'}).sort_values(by='size', ascending=False)
-    df1['flights'] = df1['size']
-    df.drop(columns='size', inplace=True)
-    df2 = df2.groupby(['origin_airport_id', 'dest_airport_id'], as_index=False).sum().groupby('origin_airport_id', as_index=False).agg({'passengers': 'sum'})
-    df3 = df1.merge(df2, on='origin_airport_id', how='inner')
-    df3.sort_values(by=column, ascending=False)
-    df3['flights/passengers'] = df3['flights'] / df3['passengers'] * 100
-    return df3
+    hourly_arr_delay = df.groupby(['dest_airport_id', 'weekday', 'arr_hour'], as_index=False).agg({'arr_delay': 'mean'})
+    hourly_dep_delay = df.groupby(['origin_airport_id', 'weekday', 'dep_hour'], as_index=False).agg({'dep_delay': 'mean'})
+    hourly_arr_delay = hourly_arr_delay.rename(columns={'arr_delay': 'hourly_arr_delay'})
+    hourly_dep_delay = hourly_dep_delay.rename(columns={'dep_delay': 'hourly_dep_delay'})
+    df = df.merge(hourly_arr_delay, on=['dest_airport_id', 'weekday', 'arr_hour'])
+    df = df.merge(hourly_dep_delay, on=['origin_airport_id', 'weekday', 'dep_hour'])
+    return df
 
 def delay_early(df):
     """
@@ -46,7 +40,7 @@ def get_top_states(df):
     """
     df['origin_states'] = df['origin_city_name'].str[-2:]
     df['dest_states'] = df['dest_city_name'].str[-2:]
-    state_size = df.groupby(['origin_states', 'dest_states']).size().reset_index().groupby('origin_states').sum().reset_index(as_index=False).sort_values(by=0, ascending=False)
+    state_size = df.groupby(['origin_states', 'dest_states']).size().reset_index().groupby('origin_states').sum().reset_index().sort_values(by=0, ascending=False)
     state_size['cumsum'] = state_size[0].cumsum()
     state_size = state_size[state_size['cumsum'] < (len(sample2) / 2)]
     return df, state_size
@@ -62,14 +56,63 @@ def remove_outliers(df):
     df['arr_delay'].dropna()
     df = df[df['arr_delay'] < 200]
     df = df[df['arr_delay'] > -100]
+    df = df[df['crs_elapsed_time'] < 500]
     return df
 
-def split_num_cat(df):
-    """
-    return two dataframes, one containing the numerical columns, the other the categorical columns
-    """
-    num_cols = df[df.dtypes[df.dtypes != 'object'].index]
-    cat_cols = df[df.dtypes[df.dtypes == 'object'].index]
-    return num_cols, cat_cols
 
-        
+
+def load_data():
+    """
+    loads processed data and returns it in X, y format
+    """
+    import pandas as pd
+    df = pd.read_csv('G_PSQL_data/JAN_sample_processing.csv')
+    return df
+
+def process_times(df):
+    df['dep_hour'] = pd.to_datetime(df['crs_dep_time'], format='%H%M', errors='coerce').round('60min').dt.hour
+    df['arr_hour'] = pd.to_datetime(df['crs_arr_time'], format='%H%M', errors='coerce').round('60min').dt.hour
+    df['weekday'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.weekday
+    df['month_day'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.day
+    return df
+
+def tail_num_arr_avg(df):
+    """
+    returns df with new column: arrival average based on tail number
+    """
+    tail1 = df.groupby(['tail_num'], as_index=False).agg({'arr_delay': 'mean'})
+    tail2 = df.groupby(['tail_num'], as_index=False).agg({'dep_delay': 'mean'})
+    tail2 = tail2.rename(columns={'dep_delay': 'tail_dep_delay'})
+    tail1 = tail1.rename(columns={'arr_delay': 'tail_arr_delay'})
+    df = df.merge(tail1, on='tail_num')
+    df = df.merge(tail2, on='tail_num')
+    return df
+
+def process_taxi_times(df):
+    """
+    returns new columns for avg taxi in and out based on airports, and total taxi on tail num
+    """
+    taxiin = df.groupby('dest_airport_id', as_index=False).agg({'taxi_in': 'mean'})
+    taxiout = df.groupby('origin_airport_id', as_index=False).agg({'taxi_out': 'mean'})
+    taxiout = taxiout.rename(columns={'taxi_out': 'airport_taxi_out_avg'})
+    taxiin = taxiin.rename(columns={'taxi_in': 'airport_taxi_in_avg'})
+    df = df.merge(taxiin, on='dest_airport_id')
+    df = df.merge(taxiout, on='origin_airport_id')
+    df['per_airport_taxi_total'] = df['airport_taxi_in_avg'] + df['airport_taxi_out_avg']
+    df['taxi_total'] = df['taxi_in'] + df['taxi_out']
+    tailtaxi = df.groupby('tail_num', as_index=False).agg({'taxi_total': 'mean'})
+    tailtaxi = tailtaxi.rename(columns={'taxi_total': 'tail_taxi_total'})
+    df.merge(tailtaxi, on='tail_num')
+    return df
+
+def sin_cos_time(df):
+    """
+    transforms hours and weekday number to sin + cos columns
+    """
+    df['dep_hour_sin'] = np.sin(df['dep_hour']*(2*np.pi/24))
+    df['dep_hour_cos'] = np.cos(df['dep_hour']*(2*np.pi/24))
+    df['arr_hour_sin'] = np.sin(df['arr_hour']*(2*np.pi/24))
+    df['arr_hour_cos'] = np.cos(df['arr_hour']*(2*np.pi/24))
+    df['weekday_sin'] = np.sin(df['weekday']*(2*np.pi/7))
+    df['weekday_cos'] = np.cos(df['weekday']*(2*np.pi/7))
+    return df
