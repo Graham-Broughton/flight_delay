@@ -60,3 +60,26 @@ def airport_hour_medians(df):
     df = df.merge(hourly_arr_delay, on=['dest_airport_id', 'weekday', 'arr_hour'])
     df = df.merge(hourly_dep_delay, on=['origin_airport_id', 'weekday', 'dep_hour'])
     return df
+
+def model_processing(df):
+    import pandas as pd
+    from sklearn.preprocessing import OrdinalEncoder
+    dist_dummies = pd.get_dummies(df['dist_cats'])
+    df = pd.concat([dist_dummies, df], axis=1)
+    df['taxi_total_long'] = df['taxi_total'] * df['long']
+    
+    df['hourly_arr_std_dep_delay'] = df['hourly_std_arr_delay'] * df['dep_delay']
+    df['carrier_arr_median_dep_delay'] = df['dep_delay'] / df['carrier_arr_median']
+    df['weekly_median_dep^2'] = df['dep_delay'] / df['weekly_median_dep_delay']
+    
+    df['hourly_std_arr_delay_dep^2'] = df['hourly_std_arr_delay'] * df['dep_delay']^2
+    df['hourly_std_dep_dep^2'] = df['dep_delay']^2 * df['hourly_std_dep_delay']
+    df['hourly_dep_dep^2'] = df['dep_delay']^2 * df['hourly_dep_delay']
+    
+    daydums = pd.get_dummies(df['arr_hour'])
+    df = pd.concat([daydums, df], axis=1)
+    df['evening_dep_delay'] = df['evening'] * df['dep_delay']
+    df['evening_taxi_total'] = df['taxi_total'] * df['evening']
+    
+    df = df.drop(columns=['taxi_total', 'dep_delay', 'wheels_on', 'wheels_off', 'evening', 'long'])
+    return df
