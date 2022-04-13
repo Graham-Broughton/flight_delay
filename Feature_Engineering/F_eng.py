@@ -10,10 +10,6 @@ def process_taxi_times_median(df):
     """
     returns new columns for avg taxi in and out based on airports, and total taxi on tail num
     """
-    taxiin = df.groupby('dest_airport_id', as_index=False).agg(median_airport_taxi_in=('taxi_in', 'median'), std_airport_taxi_in=('taxi_in', 'std'))
-    taxiout = df.groupby('origin_airport_id', as_index=False).agg(median_airport_taxi_out=('taxi_out', 'median'), std_airport_taxi_out=('taxi_out', 'std'))
-    df = df.merge(taxiin, on='dest_airport_id')
-    df = df.merge(taxiout, on='origin_airport_id')
     df['per_airport_taxi_total'] = df['airport_taxi_in_avg'] + df['airport_taxi_out_avg']
     df['taxi_total'] = df['taxi_in'] + df['taxi_out']
     tailtaxi = df.groupby('tail_num', as_index=False).agg({'taxi_total': 'median'})
