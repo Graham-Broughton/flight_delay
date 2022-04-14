@@ -33,7 +33,7 @@ def tail_num_median(df):
     df = df.merge(tail, on='tail_num')
     return df
 
-def airport_hour_medians(df):
+def process_airports(df):
     """
     returns df with hourly arrival/departure averages per airport per weekday
     """

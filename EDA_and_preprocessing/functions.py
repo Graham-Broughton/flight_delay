@@ -91,8 +91,8 @@ def remove_outliers(df):
     filters for arrival delay NaN's and for outliers based on histogram
     """
     df['arr_delay'].dropna()
-    df = df[df['arr_delay'] < 200]
-    df = df[df['arr_delay'] > -100]
+    df = df[df['arr_delay'] < 100]
+    df = df[df['arr_delay'] > -50]
     df = df[df['crs_elapsed_time'] < 500]
     return df
 
