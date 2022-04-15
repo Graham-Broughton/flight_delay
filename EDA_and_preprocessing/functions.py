@@ -23,8 +23,8 @@ def airport_hour_avgs(df):
     airport_hourly_late_arr['airport_arr_hourly_late_percent'] = airport_hourly_late_arr['late'] / airport_hourly_late_arr['total'] * 100
     airport_hourly_late_dep = df.groupby(['origin_airport_id', 'dep_hour'], as_index=False).agg(late=('late_binary', 'sum'), total=('late_binary', 'size'))
     airport_hourly_late_dep['airport_dep_hourly_late_percent'] = airport_hourly_late_dep['late'] /airport_hourly_late_dep['total'] * 100
-    airport_taxi_arr = df.groupby('dest_airport_id', as_index=False).agg(arr_taxi=('taxi_in', 'mean'))
-    airport_taxi_dep = df.groupby('origin_airport_id', as_index=False).agg(dep_taxi=('taxi_out', 'mean'))
+    airport_taxi_arr = df.groupby('dest_airport_id', as_index=False).agg(airport_taxi_in=('taxi_in', 'mean'))
+    airport_taxi_dep = df.groupby('origin_airport_id', as_index=False).agg(airport_taxi_out=('taxi_out', 'mean'))
     airport_hourly_late_arr.drop(columns=['total', 'late'], inplace=True)
     airport_hourly_late_dep.drop(columns=['total', 'late'], inplace=True)
     df = df.merge(airport_weekly_hourly_arr, on=['dest_airport_id', 'weekday', 'arr_hour'])
@@ -97,13 +97,17 @@ def remove_outliers(df):
     return df
 
 
-def process_times(df):
+def process_times1(df):
     import pandas as pd
     df['dep_hour'] = pd.to_datetime(df['crs_dep_time'], format='%H%M', errors='coerce').round('60min').dt.hour
     df['arr_hour'] = pd.to_datetime(df['crs_arr_time'], format='%H%M', errors='coerce').round('60min').dt.hour
-    df['weekday'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.weekday
-    df['month_day'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.day
-    return df
+    try:
+        df['weekday'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.weekday
+        df['month_day'] = pd.to_datetime(df['fl_date'], format='%Y-%m-%d', errors='coerce').dt.day
+    except KeyError:
+        pass
+    finally:
+        return df
 
 def tail_num_avg(df):
     """
@@ -174,7 +178,6 @@ def process_weekly(df):
     weekday['weekly_percent_late'] = weekday['late'] / weekday['tot'] * 100
     weekday['weekly_reduced_delay'] = weekday['red'] / weekday['rtot'] * 100
     weekday = weekday.drop(columns=['red', 'late', 'rtot', 'tot'])
-
     df = df.merge(weekday, on='weekday')
     return df
 
@@ -184,12 +187,23 @@ def process_hourly(df):
     arr_hourly['arr_hourly_percent_late'] = arr_hourly['late'] / arr_hourly['ltot'] * 100
     arr_hourly['arr_hourly_percent_reduced_delay'] = arr_hourly['reduce'] / arr_hourly['rtot'] * 100
     arr_hourly = arr_hourly.drop(columns=['late', 'ltot', 'reduce', 'rtot'])
-    
     dep_hourly = df.groupby('dep_hour', as_index=False).agg(dep_hourly_arr=('arr_delay', 'mean'), dep_hourly_dep=('dep_delay', 'mean'), dep_hourly_taxi=('taxi_total', 'mean'), late=('late_binary', 'sum'), tot=('late_binary', 'size'), red=('reduced_delay_flight', 'sum'), rtot=('reduced_delay_flight', 'size'))
     dep_hourly['dep_hourly_percent_late'] = dep_hourly['late'] / dep_hourly['tot'] * 100
     dep_hourly['dep_hourly_percent_reduced'] = dep_hourly['red'] / dep_hourly['rtot'] * 100
     dep_hourly = dep_hourly.drop(columns=['late', 'red', 'tot', 'rtot'])
-    
-    df.merge(arr_hourly, on='arr_hour')
-    df.merge(dep_hourly, on='dep_hour')
+    df = df.merge(arr_hourly, on='arr_hour')
+    df = df.merge(dep_hourly, on='dep_hour')
+    return df
+
+def process_routes(df):
+    tail_route_times = df.groupby(['tail_num', 'origin_airport_id', 'dest_airport_id'], as_index=False).agg(tail_route_arr_mean=('arr_delay', 'mean'), tail_route_dep_mean=('dep_delay', 'mean'), tail_route_actual=('actual_elapsed_time', 'mean'), tail_route_pred=('crs_elapsed_time', 'mean'))
+    tail_route_times['tail_route_air_ratio'] = tail_route_times['tail_route_actual'] / tail_route_times['tail_route_pred'] * 100
+    tail_route_times = tail_route_times.drop(columns=['tail_route_actual', 'tail_route_pred'])
+    carrier_route_times = df.groupby(['op_unique_carrier', 'origin_airport_id', 'dest_airport_id'], as_index=False).agg(carrier_route_arr_mean=('arr_delay', 'mean'), carrier_route_dep_mean=('dep_delay', 'mean'), carrier_route_air_actual=('actual_elapsed_time', 'mean'), carrier_route_air_pred=('crs_elapsed_time', 'mean'))
+    carrier_route_times['carrier_route_air_percent'] = carrier_route_times['carrier_route_air_actual'] / carrier_route_times['carrier_route_air_pred'] * 100
+    carrier_route_times = carrier_route_times.drop(columns=['carrier_route_air_actual', 'carrier_route_air_pred'])
+    routes = df.groupby(['origin_airport_id', 'dest_airport_id'], as_index=False).agg(route_arr_mean=('arr_delay', 'mean'), route_dep_mean=('dep_delay', 'mean'))
+    df = df.merge(routes, on=['origin_airport_id', 'dest_airport_id'])
+    df = df.merge(carrier_route_times, on=['op_unique_carrier', 'origin_airport_id', 'dest_airport_id'])
+    df = df.merge(tail_route_times, on=['tail_num', 'origin_airport_id', 'dest_airport_id'])
     return df
