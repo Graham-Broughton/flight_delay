@@ -4151,3 +4151,36 @@ OSError: [Errno 22] Invalid argument
 2022-04-15 01:50:02,032:INFO:Declaring metric variables
 2022-04-15 01:50:02,064:INFO:Importing untrained model
 2022-04-15 01:50:02,098:INFO:Extreme Gradient Boosting Imported succesfully
+2022-04-15 11:59:08,428:INFO:Initializing load_model()
+2022-04-15 11:59:08,434:INFO:load_model(model_name=best_model_tuned!, platform=None, authentication=None, verbose=True)
+2022-04-15 12:04:53,963:INFO:Initializing evaluate_model()
+2022-04-15 12:04:53,964:INFO:evaluate_model(estimator=Desktop/lighthouse-data-notes/lighthouse-data-notes/week-5/day-5/flight_delays/best_model_tuned.pkl, fold=None, fit_kwargs=None, plot_kwargs=None, feature_name=None, groups=None, use_train_data=False)
+2022-04-15 12:05:19,837:INFO:Initializing load_model()
+2022-04-15 12:05:19,837:INFO:load_model(model_name=best_model_tuned, platform=None, authentication=None, verbose=True)
+2022-04-15 12:50:56,248:INFO:Initializing load_model()
+2022-04-15 12:50:56,248:INFO:load_model(model_name=best_model_tuned, platform=None, authentication=None, verbose=True)
+2022-04-15 12:51:00,743:INFO:Initializing evaluate_model()
+2022-04-15 12:51:00,743:INFO:evaluate_model(estimator=Pipeline(steps=[('dtypes',
+                 DataTypes_Auto_infer(ml_usecase='regression',
+                                      target='arr_delay')),
+                ('imputer',
+                 Simple_Imputer(categorical_strategy='not_available',
+                                fill_value_categorical=None,
+                                fill_value_numerical=None,
+                                numeric_strategy='mean',
+                                target_variable=None)),
+                ('new_levels1',
+                 New_Catagorical_Levels_in_TestData(replacement_strategy='least '
+                                                                         'frequent',
+                                                    targe...
+                 Fix_multicollinearity(correlation_with_target_preference=None,
+                                       target_variable='arr_delay',
+                                       threshold=0.9)),
+                ('dfs', 'passthrough'), ('pca', 'passthrough'),
+                ['trained_model',
+                 LGBMRegressor(bagging_fraction=1.0, bagging_freq=3,
+                               feature_fraction=0.4, learning_rate=0.05,
+                               min_child_samples=31, min_split_gain=0.2,
+                               n_estimators=130, num_leaves=150,
+                               random_state=7446, reg_alpha=1e-06,
+                               reg_lambda=0.5)]]), fold=None, fit_kwargs=None, plot_kwargs=None, feature_name=None, groups=None, use_train_data=False)
