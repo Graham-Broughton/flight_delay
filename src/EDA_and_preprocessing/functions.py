@@ -91,8 +91,7 @@ def remove_outliers(df):
     df['arr_delay'].dropna()
     df = df[df['arr_delay'] < 100]
     df = df[df['arr_delay'] > -50]
-    df = df[df['crs_elapsed_time'] < 500]
-    return df
+    return df[df['crs_elapsed_time'] < 500]
 
 
 def process_times1(df):
